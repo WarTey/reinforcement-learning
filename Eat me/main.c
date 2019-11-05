@@ -18,6 +18,7 @@ typedef struct nourriture {
 typedef struct individu {
 	float xVitesse, yVitesse;
 	float x, y;
+	float xOld, yOld;
 	int panier;
 } individu;
 
@@ -34,6 +35,8 @@ float Factor = .5f;
 
 void init(individu *humain) {
 	currentState = GoingDown;
+	humain->xOld = humain->x;
+	humain->yOld = humain->y;
 	humain->y -= humain->yVitesse;
 	for (State y = GoingUp; y <= GoingLeft; y++)
 		for (Action x = GoUp; x <= GoLeft; x++)
@@ -64,19 +67,19 @@ float reward(State nextState, individu humain, nourriture tabNourriture[NB_NOURR
 	float deltaDist = 0.f;
 	switch (nextState) {
 		case GoingUp:
-			deltaDist = fabs(humain.y-tabNourriture[index].y)-fabs(humain.y-humain.yVitesse-tabNourriture[index].y);
+			deltaDist = fabs(humain.y-tabNourriture[index].y)-fabs(humain.yOld-tabNourriture[index].y);
 			break;
 		case GoingDown:
-			deltaDist = fabs(humain.y-tabNourriture[index].y)-fabs(humain.y+humain.yVitesse-tabNourriture[index].y);
+			deltaDist = fabs(humain.y-tabNourriture[index].y)-fabs(humain.yOld-tabNourriture[index].y);
 			break;
 		case GoingRight:
-			deltaDist = fabs(humain.x-tabNourriture[index].x)-fabs(humain.x-humain.xVitesse-tabNourriture[index].x);
+			deltaDist = fabs(humain.x-tabNourriture[index].x)-fabs(humain.xOld-tabNourriture[index].x);
 			break;
 		case GoingLeft:
-			deltaDist = fabs(humain.x-tabNourriture[index].x)-fabs(humain.x+humain.xVitesse-tabNourriture[index].x);
+			deltaDist = fabs(humain.x-tabNourriture[index].x)-fabs(humain.xOld-tabNourriture[index].x);
 			break;
 	}
-
+	
 	if (deltaDist > 0.f)
 		return .5f;
 	else if (deltaDist < 0.f)
@@ -93,21 +96,25 @@ void update(Action action, individu *humain, nourriture tabNourriture[NB_NOURRIT
 	State newState = automaton[currentState][action];
 	switch (newState) {
 		case GoingUp:
+			humain->yOld = humain->y;
 			humain->y += humain->yVitesse;
 			if (humain->y > hauteurFenetre()+30)
 				humain->y = hauteurFenetre()/16-30;
 			break;
 		case GoingDown:
+			humain->yOld = humain->y;
 			humain->y -= humain->yVitesse;
 			if (humain->y < hauteurFenetre()/16-30)
 				humain->y = hauteurFenetre()+30;
 			break;
 		case GoingRight:
+			humain->xOld = humain->x;
 			humain->x += humain->xVitesse;
 			if (humain->x > largeurFenetre()+30)
 				humain->x = -30;
 			break;
 		case GoingLeft:
+			humain->xOld = humain->x;
 			humain->x -= humain->xVitesse;
 			if (humain->x < -30)
 				humain->x = largeurFenetre()+30;
