@@ -7,6 +7,9 @@
 #define HauteurFenetre 720
 #define NB_NOURRITURES 5
 
+typedef enum {GoingUp = 0, GoingDown = 1, GoingRight = 2, GoingLeft = 3} State;
+typedef enum {GoUp = 0, GoDown = 1, GoRight = 2, GoLeft = 3} Action;
+
 typedef struct nourriture {
 	float x, y;
 	bool available;
@@ -18,6 +21,102 @@ typedef struct individu {
 	int panier;
 } individu;
 
+const State automaton[4][4] = {
+	{GoingUp, GoingDown, GoingRight, GoingLeft},
+	{GoingUp, GoingDown, GoingRight, GoingLeft},
+	{GoingUp, GoingDown, GoingRight, GoingLeft},
+	{GoingUp, GoingDown, GoingRight, GoingLeft}};
+
+float Utility[4][4];
+State currentState;
+float LearningRate = 0.f;
+float Factor = .5f;
+
+void init(individu *humain) {
+	currentState = GoingDown;
+	humain->y -= humain->yVitesse;
+	for (State y = GoingUp; y <= GoingLeft; y++)
+		for (Action x = GoUp; x <= GoLeft; x++)
+			Utility[y][x] = 1.f;
+}
+
+Action chooseAction() {
+	const float randomValue = valeurAleatoire()*(Utility[currentState][GoUp]+Utility[currentState][GoDown]+Utility[currentState][GoRight]+Utility[currentState][GoLeft]);
+	if (randomValue < Utility[currentState][GoUp])
+		return GoUp;
+	else if (randomValue < Utility[currentState][GoUp]+Utility[currentState][GoDown])
+		return GoDown;
+	else if (randomValue < Utility[currentState][GoUp]+Utility[currentState][GoDown]+Utility[currentState][GoRight])
+		return GoRight;
+	return GoLeft;
+}
+
+float reward(State nextState, individu humain, nourriture tabNourriture[NB_NOURRITURES]) {
+	int index = 0;
+	// On recherche le prochaine panier à chercher
+	for (int i = 0; i < NB_NOURRITURES; i++) {
+		if (tabNourriture[i].available) {
+			index = i;
+			break;
+		}
+	}
+
+	float deltaDist = 0.f;
+	switch (nextState) {
+		case GoingUp:
+			deltaDist = fabs(humain.y-tabNourriture[index].y)-fabs(humain.y-humain.yVitesse-tabNourriture[index].y);
+			break;
+		case GoingDown:
+			deltaDist = fabs(humain.y-tabNourriture[index].y)-fabs(humain.y+humain.yVitesse-tabNourriture[index].y);
+			break;
+		case GoingRight:
+			deltaDist = fabs(humain.x-tabNourriture[index].x)-fabs(humain.x-humain.xVitesse-tabNourriture[index].x);
+			break;
+		case GoingLeft:
+			deltaDist = fabs(humain.x-tabNourriture[index].x)-fabs(humain.x+humain.xVitesse-tabNourriture[index].x);
+			break;
+	}
+
+	if (deltaDist > 0.f)
+		return .5f;
+	else if (deltaDist < 0.f)
+		return 2.f;
+	return 1.f;
+}
+
+void updateUtility(State nextState, Action action, individu humain, nourriture tabNourriture[NB_NOURRITURES]) {
+	const float maxUtility = fmaxf(Utility[nextState][GoUp], fmaxf(Utility[nextState][GoDown], fmaxf(Utility[nextState][GoRight], Utility[nextState][GoLeft])));
+	Utility[currentState][action] = (1.f-LearningRate)*Utility[currentState][action]+LearningRate*(reward(nextState, humain, tabNourriture)+Factor*maxUtility);
+}
+
+void update(Action action, individu *humain, nourriture tabNourriture[NB_NOURRITURES]) {
+	State newState = automaton[currentState][action];
+	switch (newState) {
+		case GoingUp:
+			humain->y += humain->yVitesse;
+			if (humain->y > hauteurFenetre()+30)
+				humain->y = hauteurFenetre()/16-30;
+			break;
+		case GoingDown:
+			humain->y -= humain->yVitesse;
+			if (humain->y < hauteurFenetre()/16-30)
+				humain->y = hauteurFenetre()+30;
+			break;
+		case GoingRight:
+			humain->x += humain->xVitesse;
+			if (humain->x > largeurFenetre()+30)
+				humain->x = -30;
+			break;
+		case GoingLeft:
+			humain->x -= humain->xVitesse;
+			if (humain->x < -30)
+				humain->x = largeurFenetre()+30;
+			break;
+	}
+	updateUtility(newState, action, *humain, tabNourriture);
+	currentState = newState;
+}
+
 void cercle(float centreX, float centreY, float rayon) {
 	const int Pas = 180;
 	const double PasAngulaire = 2.*M_PI/Pas;
@@ -25,6 +124,24 @@ void cercle(float centreX, float centreY, float rayon) {
 	for (index = 0; index < Pas; ++index) {
 		const double angle = 2.*M_PI*index/Pas;
 		triangle(centreX, centreY, centreX+rayon*cos(angle), centreY+rayon*sin(angle), centreX+rayon*cos(angle+PasAngulaire), centreY+rayon*sin(angle+PasAngulaire));
+	}
+}
+
+void drawUtility() {
+	const int drawStep = 20;
+	float somme = 0.f;
+	State y;
+	for (y = GoingUp; y <= GoingLeft; ++y)
+		for (Action x = GoUp; x <= GoLeft; ++x)
+			somme += Utility[y][x];
+	couleurCourante(0, 255, 0);
+	for (y = GoingUp; y <= GoingLeft; ++y)
+	{
+		Action x;
+		for (x = GoUp; x <= GoLeft; ++x)
+		{
+			cercle(2*drawStep*(1+x), hauteurFenetre()-2*drawStep*(1+y), drawStep/2*Utility[y][x]*5/somme);
+		}
 	}
 }
 
@@ -100,27 +217,6 @@ void afficheNourriture(nourriture tabNourriture[NB_NOURRITURES]) {
 	}
 }
 
-/*void deplacement(individu tabIndividu[NB_INDIVIDUS]) {
-	// Déplacement aléatoire de l'individu selon ses caractéristiques
-	for (int i = 0; i < NB_INDIVIDUS; i++) {
-		// Détermine si changement de direction
-		tabIndividu[i].xVitesse = valeurIntervalleZeroUn()*100 <= tabIndividu[i].xProb ? -tabIndividu[i].xVitesse : tabIndividu[i].xVitesse;
-		tabIndividu[i].yVitesse = valeurIntervalleZeroUn()*100 <= tabIndividu[i].yProb ? -tabIndividu[i].yVitesse : tabIndividu[i].yVitesse;
-		// Déplacement de l'individu
-		tabIndividu[i].x += tabIndividu[i].xVitesse;
-		tabIndividu[i].y += tabIndividu[i].yVitesse;
-		// Dans le cas où notre individu arrive en bord de zone
-		if (tabIndividu[i].x > largeurFenetre()+30)
-			tabIndividu[i].x = -30;
-		else if (tabIndividu[i].x < -30)
-			tabIndividu[i].x = largeurFenetre()+30;
-		if (tabIndividu[i].y > hauteurFenetre()+30)
-			tabIndividu[i].y = hauteurFenetre()/16-30;
-		else if (tabIndividu[i].y < hauteurFenetre()/16-30)
-			tabIndividu[i].y = hauteurFenetre()+30;
-	}
-}*/
-
 void ramasse(individu *humain, nourriture tabNourriture[NB_NOURRITURES]) {
 	for (int j = 0; j < NB_NOURRITURES; j++) {
 		// Lorqu'un individu rentre en collision avec de la nourriture il l'a ramasse (si elle est disponible)
@@ -166,12 +262,15 @@ void gestionEvenement(EvenementGfx evenement) {
 			generationNourriture(tabNourriture);
 			// Génération de notre individu
 			generationIndividu(&humain);
+			// ???
+			init(&humain);
 			demandeTemporisation(20);
 			break;
 		
 		case Temporisation:
 			// Ramassage de la nourriture
 			ramasse(&humain, tabNourriture);
+			update(chooseAction(), &humain, tabNourriture);
 			rafraichisFenetre();
 			break;
 			
@@ -185,6 +284,8 @@ void gestionEvenement(EvenementGfx evenement) {
 			afficheIndividu(humain);
 			// Affichage de la nourriture
 			afficheNourriture(tabNourriture);
+			// Affiche le schéma de 'Utility'
+			drawUtility();
 			// Traçage d'un rectangle blanc
 			couleurCourante(255, 255, 255);
 			rectangle(0, 0, largeurFenetre(), hauteurFenetre()/16);
@@ -195,8 +296,7 @@ void gestionEvenement(EvenementGfx evenement) {
 			// Affiche d'une chaîne de caractères à l'écran
 			couleurCourante(0, 0, 0);
 			epaisseurDeTrait(2);
-			// Affiche le titre
-			afficheChaine("Reinforcement Learning", hauteurFenetre()/32, largeurFenetre()/128, hauteurFenetre()/64);
+			afficheChaine("0...3: learning rate ; 4...6: factor", hauteurFenetre()/32, largeurFenetre()/128, hauteurFenetre()/64);
 			break;
 			
 		case Clavier:
@@ -221,6 +321,34 @@ void gestionEvenement(EvenementGfx evenement) {
 				case 'P':
 				case 'p':
 					demandeTemporisation(-1);
+					break;
+				
+				case '0':
+					LearningRate = 0.f;
+					break;
+
+				case '1':
+					LearningRate = .1f;
+					break;
+
+				case '2':
+					LearningRate = .2f;
+					break;
+
+				case '3':
+					LearningRate = .3f;
+					break;
+
+				case '4':
+					Factor = .05f;
+					break;
+
+				case '5':
+					Factor = .5f;
+					break;
+
+				case '6':
+					Factor = .95f;
 					break;
 			}
 			break;
