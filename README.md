@@ -1,6 +1,6 @@
 # Projet d'apprentissage par renforcement
 
-Tutoriel réalisé par Guillaume Blanc de Lanaute.
+Projet réalisé par Guillaume Blanc de Lanaute.
 
 ## Compatbibilité
 
