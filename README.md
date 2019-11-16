@@ -6,7 +6,7 @@ Projet réalisé par Guillaume Blanc de Lanaute.
 
 Linux avec l'installation des dépendances nécessaires.
 
-MacOS avec l'installation d'Xcode ou d'Xcode Command Line Tools.
+macOS avec l'installation d'Xcode ou d'Xcode Command Line Tools.
 
 ## Contribution
 
