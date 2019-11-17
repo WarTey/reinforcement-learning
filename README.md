@@ -2,7 +2,7 @@
 
 Projet réalisé par Guillaume Blanc de Lanaute.
 
-## Compatbibilité
+## Compatibilité
 
 Linux avec l'installation des dépendances nécessaires.
 
